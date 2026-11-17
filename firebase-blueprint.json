@@ -1,0 +1,261 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Private user account profile and daily medication reminder preferences.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "email": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 254
+        },
+        "photoURL": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "browserNotificationsEnabled": {
+          "type": "boolean"
+        },
+        "soundAlertsEnabled": {
+          "type": "boolean"
+        },
+        "reminderLeadMinutes": {
+          "type": "number"
+        },
+        "snoozeDefaultMinutes": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "displayName",
+        "email",
+        "photoURL",
+        "browserNotificationsEnabled",
+        "soundAlertsEnabled",
+        "reminderLeadMinutes",
+        "snoozeDefaultMinutes",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Medication": {
+      "title": "Medication",
+      "description": "A prescribed or over-the-counter medication regimen with daily dose schedule and optional supply tracking.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "dosage": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "form": {
+          "type": "string",
+          "enum": [
+            "Tablet",
+            "Capsule",
+            "Liquid",
+            "Injection",
+            "Inhaler",
+            "Drops",
+            "Topical",
+            "Other"
+          ],
+          "maxLength": 30
+        },
+        "instructions": {
+          "type": "string",
+          "maxLength": 240
+        },
+        "scheduleTimes": {
+          "type": "array",
+          "description": "List of 24-hour HH:MM dose times (1 to 8 per day)."
+        },
+        "frequencyType": {
+          "type": "string",
+          "enum": ["daily", "specific_days"],
+          "maxLength": 20
+        },
+        "daysOfWeek": {
+          "type": "array",
+          "description": "Day indices 0 (Sun) through 6 (Sat)."
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "trackSupply": {
+          "type": "boolean"
+        },
+        "remainingQuantity": {
+          "type": "number"
+        },
+        "refillThreshold": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "name",
+        "dosage",
+        "form",
+        "instructions",
+        "scheduleTimes",
+        "frequencyType",
+        "daysOfWeek",
+        "active",
+        "trackSupply",
+        "remainingQuantity",
+        "refillThreshold",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "DoseLog": {
+      "title": "DoseLog",
+      "description": "A recorded dose action (taken, skipped, or snoozed) for a specific medication, date, and scheduled time.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "medicationId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "medicationName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "dosage": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "dateKey": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "scheduledTime": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 5,
+          "pattern": "^\\d{2}:\\d{2}$"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["taken", "skipped", "snoozed"],
+          "maxLength": 20
+        },
+        "takenAt": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "snoozedUntil": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 240
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "medicationId",
+        "medicationName",
+        "dosage",
+        "dateKey",
+        "scheduledTime",
+        "status",
+        "takenAt",
+        "snoozedUntil",
+        "notes",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profile and reminder settings isolated per authenticated user."
+    },
+    "/users/{userId}/medications/{medicationId}": {
+      "schema": { "$ref": "#/entities/Medication" },
+      "description": "Medications belonging to the authenticated user."
+    },
+    "/users/{userId}/doseLogs/{doseLogId}": {
+      "schema": { "$ref": "#/entities/DoseLog" },
+      "description": "Daily dose logs belonging to the authenticated user and referencing an existing medication."
+    }
+  }
+}

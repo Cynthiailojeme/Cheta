@@ -1,0 +1,100 @@
+/**
+ * Security Rule Verification Matrix (Payload-First TDD Specification)
+ * Intended for execution with @firebase/rules-unit-testing against Firestore Emulator.
+ */
+
+export const DIRTY_DOZEN_PAYLOADS = [
+  {
+    name: '1. Cross-tenant write to another user medication',
+    actorUid: 'user_a',
+    path: 'users/user_b/medications/med_1',
+    operation: 'create',
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '2. Unverified email spoofing',
+    actorUid: 'user_a',
+    emailVerified: false,
+    path: 'users/user_a/medications/med_1',
+    operation: 'create',
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '3. Shadow field injection on Medication create',
+    actorUid: 'user_a',
+    path: 'users/user_a/medications/med_1',
+    operation: 'create',
+    payload: { isAdmin: true },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '4. Shadow field injection on DoseLog update',
+    actorUid: 'user_a',
+    path: 'users/user_a/doseLogs/med_1_2026-11-17_0800',
+    operation: 'update',
+    payload: { status: 'taken', ghostField: 'injected' },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '5. Orphaned DoseLog referencing missing medicationId',
+    actorUid: 'user_a',
+    path: 'users/user_a/doseLogs/missing_2026-11-17_0800',
+    operation: 'create',
+    payload: { medicationId: 'non_existent_med' },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '6. ID poisoning with invalid characters',
+    actorUid: 'user_a',
+    path: 'users/user_a/medications/bad id !@#',
+    operation: 'create',
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '7. Ownership hijack on Medication update',
+    actorUid: 'user_a',
+    path: 'users/user_a/medications/med_1',
+    operation: 'update',
+    payload: { userId: 'user_b' },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '8. Immutable createdAt tampering on update',
+    actorUid: 'user_a',
+    path: 'users/user_a/medications/med_1',
+    operation: 'update',
+    payload: { createdAt: '2020-01-01T00:00:00Z' },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '9. Unbounded scheduleTimes array (> 8)',
+    actorUid: 'user_a',
+    path: 'users/user_a/medications/med_1',
+    operation: 'create',
+    payload: { scheduleTimes: ['01:00', '02:00', '03:00', '04:00', '05:00', '06:00', '07:00', '08:00', '09:00'] },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '10. Invalid DoseLog status enum',
+    actorUid: 'user_a',
+    path: 'users/user_a/doseLogs/med_1_2026-11-17_0800',
+    operation: 'create',
+    payload: { status: 'deleted' },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '11. User collection enumeration via list /users',
+    actorUid: 'user_a',
+    path: 'users',
+    operation: 'list',
+    expected: 'PERMISSION_DENIED',
+  },
+  {
+    name: '12. Type poisoning on remainingQuantity',
+    actorUid: 'user_a',
+    path: 'users/user_a/medications/med_1',
+    operation: 'create',
+    payload: { remainingQuantity: 'fifty' },
+    expected: 'PERMISSION_DENIED',
+  },
+] as const;

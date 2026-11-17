@@ -1,0 +1,214 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net: default deny everything
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reusable hardened primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedOwner(userId) {
+      return isSignedIn()
+        && request.auth.token.email_verified == true
+        && isValidId(userId)
+        && request.auth.uid == userId;
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll([
+          'uid', 'displayName', 'email', 'photoURL',
+          'browserNotificationsEnabled', 'soundAlertsEnabled',
+          'reminderLeadMinutes', 'snoozeDefaultMinutes',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'displayName', 'email', 'photoURL',
+          'browserNotificationsEnabled', 'soundAlertsEnabled',
+          'reminderLeadMinutes', 'snoozeDefaultMinutes',
+          'createdAt', 'updatedAt'
+        ])
+        && data.uid is string && data.uid == userId && data.uid == request.auth.uid
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 254
+        && data.photoURL is string && data.photoURL.size() <= 500
+        && data.browserNotificationsEnabled is bool
+        && data.soundAlertsEnabled is bool
+        && data.reminderLeadMinutes is number && data.reminderLeadMinutes >= 0 && data.reminderLeadMinutes <= 120
+        && data.snoozeDefaultMinutes is number && data.snoozeDefaultMinutes >= 5 && data.snoozeDefaultMinutes <= 60
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidMedication(data, userId, medicationId) {
+      return data.keys().hasAll([
+          'id', 'userId', 'name', 'dosage', 'form', 'instructions',
+          'scheduleTimes', 'frequencyType', 'daysOfWeek', 'active',
+          'trackSupply', 'remainingQuantity', 'refillThreshold',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'userId', 'name', 'dosage', 'form', 'instructions',
+          'scheduleTimes', 'frequencyType', 'daysOfWeek', 'active',
+          'trackSupply', 'remainingQuantity', 'refillThreshold',
+          'createdAt', 'updatedAt'
+        ])
+        && data.id is string && data.id == medicationId
+        && data.userId is string && data.userId == userId && data.userId == request.auth.uid
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 100
+        && data.dosage is string && data.dosage.size() >= 1 && data.dosage.size() <= 40
+        && data.form in ['Tablet', 'Capsule', 'Liquid', 'Injection', 'Inhaler', 'Drops', 'Topical', 'Other']
+        && data.instructions is string && data.instructions.size() <= 240
+        && data.scheduleTimes is list
+        && data.scheduleTimes.size() >= 1
+        && data.scheduleTimes.size() <= 8
+        && data.scheduleTimes[0] is string
+        && data.scheduleTimes[0].size() == 5
+        && data.frequencyType in ['daily', 'specific_days']
+        && data.daysOfWeek is list
+        && data.daysOfWeek.size() <= 7
+        && (data.daysOfWeek.size() == 0 || (data.daysOfWeek[0] is number && data.daysOfWeek[0] >= 0 && data.daysOfWeek[0] <= 6))
+        && data.active is bool
+        && data.trackSupply is bool
+        && data.remainingQuantity is number && data.remainingQuantity >= 0 && data.remainingQuantity <= 10000
+        && data.refillThreshold is number && data.refillThreshold >= 0 && data.refillThreshold <= 1000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidDoseLog(data, userId, doseLogId) {
+      return data.keys().hasAll([
+          'id', 'userId', 'medicationId', 'medicationName', 'dosage',
+          'dateKey', 'scheduledTime', 'status', 'takenAt', 'snoozedUntil',
+          'notes', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'userId', 'medicationId', 'medicationName', 'dosage',
+          'dateKey', 'scheduledTime', 'status', 'takenAt', 'snoozedUntil',
+          'notes', 'createdAt', 'updatedAt'
+        ])
+        && data.id is string && data.id == doseLogId
+        && data.userId is string && data.userId == userId && data.userId == request.auth.uid
+        && isValidId(data.medicationId)
+        && data.medicationName is string && data.medicationName.size() >= 1 && data.medicationName.size() <= 100
+        && data.dosage is string && data.dosage.size() >= 1 && data.dosage.size() <= 40
+        && data.dateKey is string && data.dateKey.size() == 10 && data.dateKey.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.scheduledTime is string && data.scheduledTime.size() == 5 && data.scheduledTime.matches('^\\d{2}:\\d{2}$')
+        && data.status in ['taken', 'skipped', 'snoozed']
+        && data.takenAt is string && data.takenAt.size() <= 40
+        && data.snoozedUntil is string && data.snoozedUntil.size() <= 40
+        && data.notes is string && data.notes.size() <= 240
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    match /users/{userId} {
+      // Strictly isolate PII: only the verified owner can read/write their own profile, no listing of /users
+      allow get: if isVerifiedOwner(userId);
+      allow list: if false;
+
+      allow create: if isVerifiedOwner(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedOwner(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'displayName', 'email', 'photoURL',
+            'browserNotificationsEnabled', 'soundAlertsEnabled',
+            'reminderLeadMinutes', 'snoozeDefaultMinutes', 'updatedAt'
+          ])
+        );
+
+      allow delete: if false;
+
+      match /medications/{medicationId} {
+        allow get: if isVerifiedOwner(userId) && isValidId(medicationId);
+        allow list: if isVerifiedOwner(userId) && existing().userId == request.auth.uid;
+
+        allow create: if isVerifiedOwner(userId)
+          && isValidId(medicationId)
+          && isValidMedication(incoming(), userId, medicationId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+
+        allow update: if isVerifiedOwner(userId)
+          && isValidId(medicationId)
+          && isValidMedication(incoming(), userId, medicationId)
+          && incoming().id == existing().id
+          && incoming().userId == existing().userId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && (
+            // Action: Edit regimen details
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'name', 'dosage', 'form', 'instructions',
+              'scheduleTimes', 'frequencyType', 'daysOfWeek',
+              'active', 'trackSupply', 'remainingQuantity',
+              'refillThreshold', 'updatedAt'
+            ])
+            ||
+            // Action: Quick toggle active status
+            incoming().diff(existing()).affectedKeys().hasOnly(['active', 'updatedAt'])
+            ||
+            // Action: Decrement or refill remaining supply
+            incoming().diff(existing()).affectedKeys().hasOnly(['remainingQuantity', 'updatedAt'])
+          );
+
+        allow delete: if isVerifiedOwner(userId) && isValidId(medicationId);
+      }
+
+      match /doseLogs/{doseLogId} {
+        allow get: if isVerifiedOwner(userId) && isValidId(doseLogId);
+        allow list: if isVerifiedOwner(userId) && existing().userId == request.auth.uid;
+
+        allow create: if isVerifiedOwner(userId)
+          && isValidId(doseLogId)
+          && isValidDoseLog(incoming(), userId, doseLogId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && exists(/databases/$(database)/documents/users/$(userId)/medications/$(incoming().medicationId));
+
+        allow update: if isVerifiedOwner(userId)
+          && isValidId(doseLogId)
+          && isValidDoseLog(incoming(), userId, doseLogId)
+          && incoming().id == existing().id
+          && incoming().userId == existing().userId
+          && incoming().medicationId == existing().medicationId
+          && incoming().dateKey == existing().dateKey
+          && incoming().scheduledTime == existing().scheduledTime
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && (
+            // Action: Update dose status / notes
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'status', 'takenAt', 'snoozedUntil', 'notes', 'medicationName', 'dosage', 'updatedAt'
+            ])
+          );
+
+        allow delete: if isVerifiedOwner(userId) && isValidId(doseLogId);
+      }
+    }
+  }
+}

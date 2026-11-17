@@ -1,0 +1,6 @@
+{
+  "name": "Cadence — Medication Tracker",
+  "description": "Track daily medications, manage dosing schedules, monitor adherence history, and receive timely daily reminders for every dose.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
